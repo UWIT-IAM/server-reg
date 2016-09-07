@@ -1,0 +1,231 @@
+/* ========================================================================
+ * Copyright (c) 2007 The University of Washington
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ========================================================================
+ */
+
+/* Postgres database test */
+
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <errno.h>
+
+extern int errno;
+
+/* postgres ecpg setup */
+
+exec sql include sqlca;
+#define SQLERR sqlca.sqlcode
+
+EXEC SQL WHENEVER SQLERROR SQLPRINT; 
+
+int db_connected = 0;
+
+static int db_connect() 
+{
+   EXEC SQL BEGIN DECLARE SECTION;
+   const char *host = "tcp:postgresql://urizen2.cac.washington.edu/serverreg";
+   const char *user = "svreg";
+   const char *pw = "spud987";
+   EXEC SQL END DECLARE SECTION;
+
+   fprintf(stdout, "connecting (%d)\n", db_connected);
+   if (db_connected) return (1);
+   
+   EXEC SQL CONNECT TO :host USER :user using :pw;
+   if (SQLERR) {
+      fprintf(stdout, "dbconnect error: \n");
+      db_connected = 0;
+      return (1);
+   }
+   db_connected = 1;
+   return (0);
+}
+
+static void db_disconnect() 
+{
+   EXEC SQL DISCONNECT;
+   db_connected = 0;
+}
+
+
+/* select and print sonething */
+
+int main()
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  int a;
+  char *ov;
+  char ts[24];
+
+  int debug = 0;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *an;
+   char *av;
+   int rsp_no = 0; short rsp_no_ind;
+   double now = time(NULL);
+   char q[9];
+   char *txt;
+   VARCHAR appid[64+1]; short appid_ind;
+   VARCHAR proj[64+1]; short proj_ind;
+   VARCHAR userid[64+1]; short userid_ind;
+   char rdate[64]; short rdate_ind;
+   char *selcmd;
+   char *wc = "where userid='spud'";
+   
+   EXEC SQL END DECLARE SECTION;
+   time_t rdate_t;
+
+   EXEC SQL DECLARE c_app CURSOR FOR SELECT question,description FROM question_text;
+   EXEC SQL DECLARE c_ap2 CURSOR FOR SELECT app_id,user_id,rsp_no,extract('epoch' from rsp_date) as unixtime FROM applications;
+   EXEC SQL DECLARE c_ap3 CURSOR FOR SELECT app_id,user_id,rsp_no,extract('epoch' from rsp_date) as unixtime FROM applications where rsp_no>0;
+
+   if (db_connect()) exit;
+   printf("connected\n");
+
+   EXEC SQL OPEN c_app;
+   for (;;) {
+      txt = NULL;
+      EXEC SQL FETCH c_app INTO :q, :txt;
+      if (SQLERR) break;
+      fprintf(stdout, "Q = %s, D = %s\n", q, txt);
+   }
+   EXEC SQL CLOSE c_app;
+
+   if (debug) EXEC SQL OPEN c_ap2;
+   else EXEC SQL OPEN c_ap3;
+
+   for (;;) {
+      if (debug) EXEC SQL FETCH c_ap2 INTO :appid :appid_ind, :userid :userid_ind, :rsp_no :rsp_no_ind, :rdate :rdate_ind;
+      else EXEC SQL FETCH c_ap3 INTO :appid :appid_ind, :userid :userid_ind, :rsp_no :rsp_no_ind, :rdate :rdate_ind;
+      if (SQLERR) break;
+      rdate_t = atoi(rdate);
+      fprintf(stdout, "appid=%s, date=%s (%ud)\n", appid.arr, rdate, rdate_t);
+   }
+   if (debug) EXEC SQL CLOSE c_ap2;
+   else EXEC SQL CLOSE c_ap3;
+
+   db_disconnect();
+}
+
+
+#ifdef LATER
+/* Save a form to a local file (by template) */
+
+static int db_save_form_to_file(WebTemplate W, char *cn, char *path, char *tpl)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  time_t now = time(NULL);
+  WebTemplate F = newWebTemplate();
+  int a;
+  char *an;
+  char *av;
+  char *ov;
+  char ts[24];
+
+  if (!(f=fopen(path,"w"))) {
+    perror(path);
+    return (errno);
+  } 
+  WebTemplate_set_output(F, fileno(f));
+  WebTemplate_set_noheader(F);
+  WebTemplate_set_comments(F, "#", NULL);
+  WebTemplate_get_by_name(F, "page", tpl);
+  WebTemplate_assign(F, "cn", cn);
+  WebTemplate_assign(F, "remote_user", remote_user);
+  WebTemplate_assign(F, "show_date", ctime(&now));
+  sprintf(ts, "%d", now);
+  WebTemplate_assign(F, "time", ts);
+
+  /* scan form values and add any 'q*' to output */
+  for (a=0;;) {
+     if (!(an=WebTemplate_get_next_arg(W, &a, &av))) break;
+     if (*an != 'q') continue;  // not one of our's
+
+     /* record the q&a for retireval by the caller */
+     if (strncmp(an,av,strlen(an))) p = av;
+     else p = av+strlen(an)+1;
+     WebTemplate_assign(F, an, p);
+
+     /* store this q&a in the db */
+     WebTemplate_assign(F, "Q", an);
+     WebTemplate_assign(F, "RESP", av);
+     WebTemplate_parse_dynamic(F, "page.question");
+     free(an);
+     if (av) free(av);
+  }
+
+  WebTemplate_parse(F, "PAGE", "page");
+  WebTemplate_write(F, "PAGE");
+  fclose(f);
+  return (0);
+}
+
+
+
+
+/* --- Copying form data to the active template ---- */
+
+/* Copy form values to the template.
+   Only return non-zero if the database cannot be accessed. */
+
+static int db_load_form_from_db(WebTemplate W, Application *app)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  time_t now = time(NULL);
+  int a;
+  char *ov;
+  char ts[24];
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *q;
+   char *v;
+   char *txt;
+   int rsp_no = 0;
+   EXEC SQL END DECLARE SECTION;
+
+   if (!db_connect()) return (0);
+
+   /* add responses to the page */ 
+  
+   rsp_no = app->rsp_no;
+   EXEC SQL DECLARE rsp CURSOR FOR SELECT question,answer FROM responses WHERE rsp_no=':rsp_no';
+
+   do {
+      EXEC SQL FETCH NEXT FROM rsp INTO :q, :v;
+      if (SQLERR) break;
+
+       // set in the output form (value or check)
+       if (strncmp(q, v, strlen(q))) {
+          char *fv = WebTemplate_text2html(v);
+          WebTemplate_assign(W, q, fv);
+       } else {
+          char *ck = (char*) malloc(strlen(v)+20);
+          sprintf(ck, "%s_checked", v);
+          WebTemplate_assign(W, ck, "checked");
+       }
+  }
+  return (SQLERR==0);
+}
+#endif

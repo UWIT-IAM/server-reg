@@ -1,0 +1,5 @@
+export REMOTE_USER=fox
+export REQUEST_URI=/eds2/admin/
+
+export QUERY_STRING='req=action&auth_action=ldapgrant%20GDS:%20courses&xtime=1240947367&xsite=7360e1ab02ff2453beb0478bcda3130137f09e8b&cn=user.ee.washington.edu&q_cn=user.ee.washington.edu'
+

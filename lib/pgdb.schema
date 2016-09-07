@@ -1,0 +1,59 @@
+--
+-- Server-reg Postgres schema definition
+--
+
+CREATE SEQUENCE rsp_no_seq START 1;
+REVOKE ALL ON rsp_no_seq FROM PUBLIC;
+GRANT UPDATE,SELECT ON rsp_no_seq TO svreg;
+
+CREATE TABLE responses (
+   rsp_no INTEGER NOT NULL,
+   question CHAR(12),
+   answer TEXT
+);
+REVOKE ALL ON TABLE responses FROM PUBLIC;
+GRANT INSERT,SELECT,UPDATE ON TABLE responses TO svreg;
+
+
+CREATE TABLE question_text (
+   question CHAR(12),
+   description TEXT
+);
+REVOKE ALL ON TABLE question_text FROM PUBLIC;
+GRANT INSERT,SELECT,UPDATE ON TABLE question_text TO svreg;
+
+CREATE TABLE applications (
+   app_id VARCHAR(64), 
+   project VARCHAR(64), 
+   user_id VARCHAR(32),
+   app_owner VARCHAR(128),
+   app_email VARCHAR(128),
+   rsp_no integer,
+   rsp_date TIMESTAMP
+);
+REVOKE ALL ON TABLE applications FROM PUBLIC;
+GRANT INSERT,SELECT,UPDATE ON TABLE applications TO svreg;
+
+
+
+CREATE TABLE authorizations (
+   app_id VARCHAR(64),
+   auth_code INTEGER,
+   status INTEGER,
+   req_id VARCHAR(32),
+   req_date TIMESTAMP,
+   auth_id VARCHAR(32),
+   auth_date TIMESTAMP
+);
+REVOKE ALL ON TABLE authorizations FROM PUBLIC;
+GRANT INSERT,SELECT,UPDATE ON TABLE authorizations TO svreg;
+
+CREATE TABLE authorization_text (
+   auth_code INTEGER,
+   label VARCHAR(32),
+   description TEXT
+);
+REVOKE ALL ON TABLE authorization_text FROM PUBLIC;
+GRANT INSERT,SELECT,UPDATE ON TABLE authorization_text TO svreg;
+
+

@@ -1,0 +1,10 @@
+AuthType uwnetid
+require group "Departments.C&C.admin.PC admin"
+PubcookieAppID server-reg
+
+DirectoryIndex index.cgi
+
+ErrorDocument 401 /pubcookie/?req=nop
+
+
+

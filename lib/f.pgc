@@ -1,0 +1,38 @@
+/* Get a list of forms */
+
+char **db_list_of_forms(char *proj, char *userid)
+{
+  char **rsp=(char**)malloc(sizeof(char*));
+  char **rspp = rsp;
+  int nrsp = 0;
+  int a;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *txt;
+   int rsp_no = 0;
+   char *p_userid = userid;
+   VARCHAR  app[128];
+   VARCHAR uid[24];
+   char *selcmd;
+   EXEC SQL END DECLARE SECTION;
+
+   EXEC SQL  DECLARE c_appu CURSOR FOR SELECT app_id,user_id FROM applications WHERE user_id=:p_userid;
+   EXEC SQL  DECLARE c_app  CURSOR FOR SELECT app_id,user_id FROM applications; 
+
+   if (db_connect()) return (NULL);
+
+   if (userid) EXEC SQL OPEN c_appu;
+   else EXEC SQL OPEN c_app;
+
+   for (;;) {
+      if (userid) EXEC SQL FETCH NEXT FROM c_appu INTO :app, :uid;
+      else EXEC SQL FETCH NEXT FROM c_app INTO :app, :uid;
+      if (SQLERR || SQLEOD) break;
+      nrsp++;
+      rsp = (char**) realloc((void*)nrsp, sizeof(char*)*(nrsp+1));
+      *(rspp++) = strdup(app.arr);
+   }
+   *rspp = NULL;
+   return (rsp);
+}
+

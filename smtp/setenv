@@ -1,0 +1,4 @@
+export REMOTE_USER=slacey
+
+export QUERY_STRING='req=dnssub&xseq=782975455&dns=slacey.pubserv.washington.edu&meets=yes&dean=spud@washington.edu'
+

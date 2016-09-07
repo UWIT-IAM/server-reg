@@ -1,0 +1,19 @@
+This is the WebTemplate package.  See the webtpl.html for more information.
+
+Original (and maybe more recent) source: 
+
+   http://staff.washington.edu/fox/webtpl/
+
+You should be able to do:
+
+ $ ./configure
+ $ make
+ $ make install
+
+Default is to install into /usr/local.
+
+
+See the webtpl.html file for API documentation.
+
+
+

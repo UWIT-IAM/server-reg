@@ -1,0 +1,114 @@
+# server-reg makefile common macros
+
+
+# Filesystem location of installed site
+DEST=/www/server-reg
+
+# URL base of app
+URL=/server-reg
+
+# Filesystem location of source
+SRC=/data/local/src/server-reg
+
+# --------------------------------------------------
+
+CC=cc
+ECPG=/usr/local/pgversion/bin/ecpg
+INSTALL=/usr/bin/install
+
+# server-reg library defs
+# webtpl compiled in
+SRLIB=-L$(SRC)/lib -lsrtools
+SRINC=-I$(SRC)/lib -Iwebtpl
+SRDEP=$(SRC)/lib/libsrtools.a \
+      $(SRC)/lib/db.h \
+      $(SRC)/lib/util.h \
+      $(SRC)/lib/srext.h \
+      $(SRC)/lib/srgr.h \
+      $(SRC)/lib/ks.h
+
+
+LDAPLIB=-L/usr/local/lib -lldap_r -llber -lsasl2 -lpthread
+LDAPINC=-I/usr/local/include
+
+COMMON_LIBS= \
+    -L/usr/local/lib \
+    -L/usr/kerberos/lib \
+    $(LDAPLIB) \
+    -lgsoapssl \
+    -lssl \
+    -lcrypto -ldl -lz -lresolv
+
+COMMON_INCL= \
+    $(SRINC) -I/usr/kerberos/include $(LDAPINC) \
+    -I/usr/local/include
+
+
+# --------------------------------------------------
+
+.SUFFIXES:	.c .pgc .o
+# .pgc.c:	
+# 	$(ECPG) $<
+.pgc.c:	
+	$(ECPG) $(@:.c=.pgc)
+
+.c.o:
+	$(CC) -c $(CFLAGS) $(@:.o=.c)
+
+
+all:	all-sub  all-local
+
+all-sub:
+	@ if [ -n "$(SUBDIRS)" ]; then \
+	  for d in $(SUBDIRS); do \
+		if [ -d $$d ]; then \
+			echo "Making all in $$d"; \
+			( cd $$d; make all ); \
+		fi \
+	  done; \
+	fi
+
+
+install-prog:	$(PROG)
+	@ for f in $(PROG); do \
+		if [ $$f -nt $(SUBDEST)/$$f ]; \
+		then \
+			echo "Installing $$f"; \
+			$(INSTALL) -D -o root -g nobody -m 750 $$f $(SUBDEST)/$$f; \
+		fi; \
+	done
+
+install-data:	$(DATA)
+	@ for f in $(DATA); do \
+		if [ $$f -nt $(SUBDEST)/$$f ]; \
+		then \
+			echo "Installing $$f"; \
+			$(INSTALL) -D -o root -g nobody -m 640 $$f $(SUBDEST)/$$f; \
+		fi; \
+	done
+
+install-sub:
+	@ if [ -n "$(SUBDIRS)" ]; then \
+	  for d in $(SUBDIRS); do \
+		if [ -d $$d ]; then \
+			echo "Making install in $$d"; \
+			( cd $$d; make install ); \
+                fi \
+	  done; \
+	fi
+
+
+clean:	clean-sub clean-local
+
+clean-local:
+	@ rm -f *.o $(PROG)
+
+clean-sub:
+	@ if [ -n "$(SUBDIRS)" ]; then \
+	  for d in $(SUBDIRS); do \
+		echo "Making clean in $$d"; \
+		( cd $$d; make clean ); \
+	  done; \
+	fi
+
+

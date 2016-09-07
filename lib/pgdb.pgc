@@ -1,0 +1,538 @@
+EXEC SQL INCLUDE donotedit.h;
+/* ========================================================================
+ * Copyright (c) 2007 The University of Washington
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ========================================================================
+ */
+
+/* Postgres database access for form storage and retrieval
+   for applications using webTemplates */
+
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <errno.h>
+
+#include "webtpl.h"
+#include "ckcn.h"
+#include "util.h"
+#include "srext.h"
+
+#define PGDB_LIBRARY
+#include "pgdb.h"
+
+extern char *remote_user;
+extern int errno;
+
+int debug = 0;
+
+/* postgres ecpg setup */
+
+exec sql include sqlca;
+#define SQLERR (sqlca.sqlcode<0)
+#define SQLEOD (sqlca.sqlcode==ECPG_NOT_FOUND)
+#define SQLRET (sqlca.sqlcode)
+
+EXEC SQL WHENEVER SQLERROR SQLPRINT;  
+
+/* ---- Database connection tools ---------------- */
+
+static int db_connected = 0;
+
+#ifdef NOTDEFD
+static int get_db_config(char **db, char **user, char **pw)
+{
+   char rec[256];
+   FILE *fp;
+
+   if (!(fp=fopen(path_name(DB_CONFIG),"r"))) {
+      // db_error_int("db config: %d", errno);
+      return (errno);
+   }
+
+   while (fgets(rec, 255, fp)) {
+      char *k = rec;
+      char *p;
+      if (p=strchr(rec,'\n')) *p = '\0';
+      while (*k && isspace(*k)) k++;
+      if (*k=='#') continue;
+      for (p=k; *p && isalnum(*p); p++);
+      *p++ = '\0';
+      while (*p && (isspace(*p)||(*p=='='))) p++;
+      if (!strcmp(k,"db")) *db = strdup(p);
+      if (!strcmp(k,"user")) *user = strdup(p);
+      if (!strcmp(k,"pw")) *pw = strdup(p);
+   }
+   fclose(fp);
+   return (1);
+}
+#endif
+
+/* connect if not connected already.  Return SQLRET on error */
+int db_connect() 
+{
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *host;
+   char *user;
+   char *pw;
+   EXEC SQL END DECLARE SECTION;
+
+   if (debug) fprintf(stdout, "connecting (%d)\n", db_connected);
+   if (db_connected) return (0);
+   
+   // get_db_config(&host, &user, &pw);
+   if (!sr_config) return (-1);
+   host = sr_config->eds_db;
+   user = sr_config->eds_user;
+   pw = sr_config->eds_pw;
+
+   EXEC SQL CONNECT TO :host USER :user using :pw;
+   if (SQLERR) {
+      // fprintf(stdout, "dbconnect error: %d\n", SQLRET);
+      db_connected = 0;
+      return (SQLRET);
+   }
+   db_connected = 1;
+   return (0);
+}
+
+void db_disconnect()
+{
+   if (db_connected) EXEC SQL DISCONNECT;
+   db_connected = 0;
+}
+
+
+/* --------- local tools ------------- */
+
+/* Compute path to the form file */
+static char *make_form_path(char *proj, char *dir, char *name, char *ext)
+{
+  char *path = (char*) malloc(strlen(DIRROOT)+strlen(proj)+strlen(dir)+strlen(name)+strlen(ext)+5);
+  sprintf(path, "%s/%s/%s/%s.%s", DIRROOT, proj, dir, name, ext);
+  return (path);
+}
+
+
+/* get and free application records */
+
+void db_free_application(Application *app)
+{
+   free(app->proj);
+   free(app->appid);
+   free(app->userid);
+   free(app);
+}
+
+Application *db_get_application(char *proj, char *appid)
+{
+   Application *app = (Application*) malloc(sizeof(Application));
+   int authn = 0;
+   EXEC SQL BEGIN DECLARE SECTION;
+   VARCHAR p_userid[32];
+   char rsp_date_txt[48];
+   int rsp_no = 0;
+   int auth;
+   int status;
+   char *p_proj = proj;
+   char *p_appid = appid;
+   VARCHAR  p_owner[128];
+   VARCHAR  p_email[128];
+   short i_id, i_ow, i_em, i_rn, i_ut;
+   EXEC SQL END DECLARE SECTION;
+   time_t rsp_date;
+
+   memset(app, 0, sizeof(Application));
+
+   app->proj = strdup(proj);
+   app->appid = strdup(appid);
+   app->status = 0;
+
+   if (db_connect()) return (NULL);
+   
+   EXEC SQL SELECT user_id,app_owner,app_email,rsp_no,extract('epoch' from rsp_date) as unixtime
+           into :p_userid :i_id, :p_owner :i_ow, :p_email :i_em, :rsp_no :i_rn, :rsp_date_txt :i_ut
+           from applications
+           where project=:p_proj and app_id=:p_appid;
+   if (rsp_no==0) return (NULL);
+   if (!i_id) app->userid = strdup(p_userid.arr);
+   if (!i_ow) app->app_owner = strdup(p_owner.arr);
+   if (!i_em) app->app_email = strdup(p_email.arr);
+   if (!i_ut) app->rsp_date = atoi(rsp_date_txt);
+   if (!i_rn) app->rsp_no = rsp_no;
+   app->status = 1;
+
+   // get the authorizations for this app
+   EXEC SQL DECLARE c_auth CURSOR FOR SELECT auth_code,status FROM authorizations WHERE app_id=:p_appid;
+   EXEC SQL OPEN c_auth;
+
+   for (;;) {
+      EXEC SQL FETCH NEXT FROM c_auth INTO :auth, :status;
+      if (SQLERR || SQLEOD) break;
+      app->auth_st[auth] = status;
+   }
+   EXEC SQL CLOSE c_auth;
+   if (SQLERR) {
+      // should be error
+      // should free app
+      app = NULL;
+   }
+   return (app);
+}
+
+/* Set an application's ownership group */
+
+int db_set_app_ownership(WebTemplate W, char *proj, char *cn, char *owner)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  int a;
+  char *ov;
+  int ret;
+  Application *app;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *an;
+   char *av;
+   int rsp_no = 0;
+   char *p_appid = cn;
+   char *p_proj = proj;
+   char *p_owner = owner;
+   EXEC SQL END DECLARE SECTION;
+
+  if (ret=db_connect()) return (ret);
+
+  /* insert or update the application's master record */
+
+  if (app = db_get_application(proj, cn)) {
+      printf(".. update\n");
+      EXEC SQL UPDATE applications SET app_owner=:p_owner where project=:p_proj AND app_id=:p_appid; 
+  } else {
+     printf(".. insert\n");
+     EXEC SQL INSERT into applications (app_id,project,app_owner) VALUES ( :p_appid, :p_proj, :p_owner); 
+  }
+  EXEC SQL COMMIT;
+  return (SQLRET);
+}
+
+/* Write a form's questions and qnswers to the database.  */
+
+static int db_save_form_to_db(WebTemplate W, char *proj, char *cn, char *id)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  int a;
+  char *ov;
+  char ts[24];
+  int ret;
+  Application *app;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *an;
+   char *av;
+   int rsp_no = 0;
+   char *p_appid = cn;
+   char *p_proj = proj;
+   char *p_id = id;
+   EXEC SQL END DECLARE SECTION;
+   time_t now = time(NULL);
+
+  if (ret=db_connect()) return (ret);
+
+  /* allocate a new response number */
+
+  EXEC SQL SELECT nextval('rsp_no_seq') into :rsp_no;
+  if (rsp_no==0) {
+      return(SQLRET);
+  }
+  
+  /* scan form values and add any 'q*' to db */ 
+  for (a=0;;) {
+     if (!(an=WebTemplate_get_next_arg(W, &a, &av))) break;
+     if (*an != 'q') continue;  // not one of our's
+     if ((!av) || (*av=='\0')) continue;  // blank
+     EXEC SQL INSERT into responses VALUES ( :rsp_no, :an, :av, 0 );
+     free(an);
+     if (av) free(av);
+  }
+
+  /* insert or update the application's master record */
+
+  if (app = db_get_application(proj, cn)) {
+      EXEC SQL UPDATE applications SET rsp_no=:rsp_no where project=:p_proj AND app_id=:p_appid; 
+      rsp_no = app->rsp_no;
+      if (rsp_no>0) EXEC SQL UPDATE responses SET status=1 where rsp_no=:rsp_no;   // mute old answers
+  } else {
+     EXEC SQL INSERT into applications VALUES ( :p_appid, :p_proj, :p_id, NULL, NULL, :rsp_no, 'now' ); 
+  }
+  EXEC SQL COMMIT;
+  return (SQLRET);
+}
+
+/* Save a form to a local file (by template) */
+
+static char *db_save_form_to_file(WebTemplate W, char *cn, char *path, char *tpl)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  time_t now = time(NULL);
+  WebTemplate F = newWebTemplate();
+  int a;
+  char *an = NULL;
+  char *av;
+  char *ov;
+  char ts[24];
+
+  if (!(f=fopen(path,"w"))) {
+    perror(path);
+    return (NULL);
+  } 
+  WebTemplate_set_output(F, fileno(f));
+  WebTemplate_set_noheader(F);
+  WebTemplate_set_comments(F, "#", NULL);
+  WebTemplate_get_by_name(F, "page", tpl);
+  WebTemplate_assign(F, "cn", cn);
+  WebTemplate_assign(F, "CN", cn);
+  WebTemplate_assign(F, "remote_user", remote_user);
+  WebTemplate_assign(F, "show_date", ctime(&now));
+  sprintf(ts, "%d", now);
+  WebTemplate_assign(F, "time", ts);
+
+  /* scan form values and add any 'q*' to output */
+  for (a=0;;) {
+     char *ov = NULL;
+     char *wv;
+     if (!(an=WebTemplate_get_next_arg(W, &a, &av))) break;
+     if (*an != 'q') continue;  // not one of our's
+
+     if (strncmp(an,av,strlen(an))) p = av;
+     else p = av+strlen(an)+1;
+
+     // couple of special cases
+     if (!strcmp(av, "q5_admin")) p = "Central Business Unit";
+     if (!strcmp(av, "q5_dept")) p = "Departmental";
+     if (!strcmp(av, "q5_other")) p = "Other";
+     if (!strcmp(av, "q5_xxx")) p = "Dont know";
+     if (!strcmp(av, "q6_basic")) p = "PDS Basic";
+     if (!strcmp(av, "q6_student")) p = "PDS Student";
+     if (!strcmp(av, "q6_employee")) p = "PDS Employee";
+     if (!strcmp(av, "q6_alumni")) p = "PDS Alumni";
+     if (!strcmp(av, "q6_groups")) p = "GDS Groups";
+     if (!strcmp(av, "q6_courses")) p = "GDS Courses";
+
+     // some questions have multivalue attrs
+     if (wv=WebTemplate_macro_value(F, an)) {
+        ov = (char*) malloc(strlen(wv)+strlen(p)+8);
+        strcat(strcat(strcpy(ov, wv), ", "), p);
+        p = ov;
+     }
+     WebTemplate_assign(F, an, p);
+     free(an);
+     if (av) free(av);
+     if (ov) free(ov);
+  }
+
+  WebTemplate_parse(F, "PAGE", "page");
+  WebTemplate_write(F, "PAGE");
+  fclose(f);
+  p = WebTemplate_macro_value(F, "PAGE");
+  if (p) return (strdup(p));  // strdup do to bug in old webtpl
+  return (NULL);
+}
+
+
+/* save the form data to the DB and to a log file */
+
+char *db_save_form(WebTemplate W, char *proj, char *cn, char *logtpl)
+{
+   char *path;
+   char ts[24];
+   time_t now = time(NULL);
+   char *form_text;
+
+   /* save to the database */
+   db_save_form_to_db(W, proj, cn, remote_user);
+
+   /* write the log file */
+   sprintf(ts, "q%d", now);
+   path = make_form_path(proj, "log", cn, ts);
+   form_text = db_save_form_to_file(W, cn, path, logtpl);
+   free(path);
+   return(form_text);
+}
+
+
+/* Authorizations */
+
+Authorization *db_new_authorization(char *appid, int a)
+{
+   Authorization *A = (Authorization*) malloc(sizeof(Authorization));
+   memset (A, 0, sizeof(Authorization));
+   A->appid = strdup(appid);
+   A->auth_code = a;
+   return (A);
+}
+
+/* merge in some, possibly new, auth requests */
+
+int db_update_authorizations(Authorization **auths)
+{
+   Authorization **sauths = auths;
+   int ret = 0;
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *p_appid;
+   char *p_req_id;
+   char *p_req_date;
+   char *p_auth_id;
+   char *p_auth_date;
+   int p_code;
+   int p_status;
+   EXEC SQL END DECLARE SECTION;
+
+   for (; *auths; auths++) {
+      Authorization *auth = *auths;
+      p_appid = auth->appid;
+      p_code = auth->auth_code;
+      p_req_id = auth->req_id;
+      p_auth_id = auth->auth_id;
+      EXEC SQL SELECT status INTO :p_status FROM authorizations WHERE app_id=:p_appid AND auth_code=:p_code; 
+      if (SQLERR) {
+         // should report error
+         break;
+      }
+      if (SQLEOD) {
+         // new record
+         p_status = auth->status;
+         if (p_req_id) EXEC SQL INSERT INTO authorizations VALUES (:p_appid, :p_code, :p_status, :p_req_id,'now', NULL,NULL);
+         // new record for auth granted is error.
+      } else {
+         // existing record
+         p_status = auth->status;
+        if (p_req_id) EXEC SQL UPDATE authorizations SET status=:p_status,req_id=:p_req_id,req_date='now' WHERE app_id=:p_appid AND auth_code=:p_code;
+        if (p_auth_id) EXEC SQL UPDATE authorizations SET status=:p_status,auth_id=:p_auth_id,req_date='now' WHERE app_id=:p_appid AND auth_code=:p_code;
+      }
+   }
+   EXEC SQL COMMIT;
+   return (SQLRET);
+}
+
+
+
+
+
+/* --- Copying form data to the active template ---- */
+
+/* Copy form values to the template.
+   Only return non-zero if the database cannot be accessed. */
+
+int db_load_form_from_db(WebTemplate W, Application *app)
+{
+  char *p;
+  FILE *f;
+  char **rspl, *rsp;
+  time_t now = time(NULL);
+  int a;
+  char *ov;
+  char ts[24];
+  int ret;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *q;
+   char *v;
+   char *txt;
+   int rsp_no = 0;
+   EXEC SQL END DECLARE SECTION;
+
+   if (ret=db_connect()) return (ret);
+
+   /* add responses to the page */ 
+  
+   rsp_no = app->rsp_no;
+   EXEC SQL DECLARE c_rsp CURSOR FOR SELECT question,answer FROM responses WHERE rsp_no=:rsp_no;
+   EXEC SQL OPEN c_rsp;
+
+   for (;;) {
+      q = NULL;
+      v = NULL;
+      EXEC SQL FETCH NEXT FROM c_rsp INTO :q, :v;
+      if (SQLERR || SQLEOD) break;
+
+       if (p=strchr(q,' ')) *p = '\0';
+       // set in the output form (value or check)
+       if (strncmp(q, v, strlen(q))) {
+          char *fv = WebTemplate_text2html(v);
+          WebTemplate_assign(W, q, fv);
+       } else {
+          char *ck = (char*) malloc(strlen(v)+20);
+          sprintf(ck, "%s_checked", v);
+          WebTemplate_assign(W, ck, "checked");
+       }
+  }
+  EXEC SQL CLOSE c_rsp;
+  return (SQLRET);
+}
+
+/* Get a list of forms */
+
+char **db_list_of_apps(char *proj, int active)
+{
+  char **rsp=(char**)malloc(sizeof(char*));
+  int nrsp = 0;
+  int a;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+   char *txt;
+   int rsp_no = 0;
+   VARCHAR  p_app[128];
+   VARCHAR p_uid[24];
+   char *p_proj = proj;
+   char *selcmd;
+   EXEC SQL END DECLARE SECTION;
+
+   EXEC SQL  DECLARE c_appa  CURSOR FOR SELECT DISTINCT applications.app_id
+                FROM applications,authorizations
+                WHERE applications.project=:p_proj
+                   AND applications.app_id=authorizations.app_id
+                   AND authorizations.status<>3
+                   AND authorizations.status<>0
+                ORDER BY applications.app_id;
+
+   EXEC SQL  DECLARE c_appz  CURSOR FOR SELECT app_id FROM applications
+                ORDER BY app_id; 
+
+   if (db_connect()) return (NULL);
+
+   if (active) EXEC SQL OPEN c_appa;
+   else EXEC SQL OPEN c_appz;
+
+   for (;;) {
+      if (active) EXEC SQL FETCH NEXT FROM c_appa INTO :p_app;
+      else EXEC SQL FETCH NEXT FROM c_appz INTO :p_app;
+      if (SQLERR || SQLEOD) break;
+      rsp = (char**) realloc((void*)rsp, sizeof(char*)*(nrsp+2));
+      *(rsp+nrsp++) = strdup(p_app.arr);
+   }
+   *(rsp+nrsp++) = NULL;
+   if (active) EXEC SQL CLOSE c_appa;
+   else EXEC SQL CLOSE c_appz;
+   return (rsp);
+}
+
+
+

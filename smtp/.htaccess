@@ -1,0 +1,5 @@
+authtype uwnetid
+require valid-user
+PubcookieAppID server-reg
+
+directoryindex index.cgi

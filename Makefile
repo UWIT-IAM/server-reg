@@ -12,7 +12,7 @@ LFLAGS= $(COMMON_LIBS)
 
 SUBDIRS=lib smtp eds2 pbc
 
-DATA=index.html 
+DATA=index.html server-reg.css
 
 
 all-local:

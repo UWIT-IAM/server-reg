@@ -35,7 +35,6 @@ COMMON_LIBS= \
     -L/usr/local/lib \
     -L/usr/kerberos/lib \
     $(LDAPLIB) \
-    -lgsoapssl \
     -lssl \
     -lcrypto -ldl -lz -lresolv
 

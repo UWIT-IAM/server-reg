@@ -73,7 +73,7 @@ install-prog:	$(PROG)
 		if [ $$f -nt $(SUBDEST)/$$f ]; \
 		then \
 			echo "Installing $$f"; \
-			$(INSTALL) -D -o root -g nobody -m 750 $$f $(SUBDEST)/$$f; \
+			$(INSTALL) -D -o root -g nobody -m 755 $$f $(SUBDEST)/$$f; \
 		fi; \
 	done
 
@@ -82,7 +82,7 @@ install-data:	$(DATA)
 		if [ $$f -nt $(SUBDEST)/$$f ]; \
 		then \
 			echo "Installing $$f"; \
-			$(INSTALL) -D -o root -g nobody -m 640 $$f $(SUBDEST)/$$f; \
+			$(INSTALL) -D -o root -g nobody -m 644 $$f $(SUBDEST)/$$f; \
 		fi; \
 	done
 

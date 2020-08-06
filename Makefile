@@ -2,6 +2,8 @@
 
 include Makefile.macros
 
+SUBDEST=$(DEST)
+
 DEBUG=-g
 
 DEFINES=-DURLROOT=\"$(URL)\" -DDIRROOT=\"$(DEST)\"

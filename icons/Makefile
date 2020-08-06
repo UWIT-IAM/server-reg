@@ -1,4 +1,4 @@
-include Makefile.macros
+include ../Makefile.macros
 
 PROJECT=icons
 SUBDEST=$(DEST)/$(PROJECT)

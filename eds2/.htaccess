@@ -1,9 +1,6 @@
-authtype uwnetid
-# require valid-user
-# require type staff
-PubcookieAppID server-reg
-require isMemberOf urn:mace:washington.edu:groups:u_cac_admin_eds-alumni
-require isMemberOf urn:mace:washington.edu:groups:u_cac_admin_eds-basic
-require isMemberOf urn:mace:washington.edu:groups:u_cac_admin_eds-employee
-require isMemberOf urn:mace:washington.edu:groups:u_cac_admin_eds-student
-require isMemberOf urn:mace:washington.edu:groups:u_cac_admin_gds-basic
+authtype shibboleth
+shibrequiresession on
+require valid-user
+
+directoryindex index.cgi
+

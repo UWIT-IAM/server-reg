@@ -21,7 +21,7 @@ SUBDIRS=
 
 PROG=index.cgi 
 DATA=requests.tpl detail.tpl home.tpl menu.tpl actions.tpl \
-    mailer.tpl 
+    mailer.tpl .htaccess
 
 all-local:	$(PROG)
 

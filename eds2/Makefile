@@ -24,7 +24,8 @@ DATA=help.tpl home.tpl menu.tpl \
      index.tpl mailform.tpl nop_adm.tpl \
      req_1.tpl req_2.tpl req_reply.tpl \
      rag_1.tpl rag_2.tpl \
-     req_log.tpl mailer.tpl 
+     req_log.tpl mailer.tpl .htaccess
+
 
 all-local:	$(PROG)
 

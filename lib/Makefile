@@ -23,7 +23,7 @@ DEFINES=-DURLROOT=\"$(URL)\" -DDIRROOT=\"$(DEST)\" $(LDAP_DEBUG)
 CFLAGS= $(DEBUG) $(INC) $(DEFINES)
 LFLAGS= $(LIB) -lecpg -lcurl
 
-SUBDIRS=
+SUBDIRS=webtpl-1.16
 
 PROG=ldaptest
 

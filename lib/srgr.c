@@ -29,6 +29,7 @@
 #include <curl/curl.h>
 
 #include "srgr.h"
+#include "srext.h"
 
 char curl_error_buffer[CURL_ERROR_SIZE];
 
@@ -126,7 +127,7 @@ int gr_action(char *grp, char *cn, char **rsp, int rm)
 
    curl_easy_setopt(curl, CURLOPT_SSLCERT, CRTFILE);
    curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
-   curl_easy_setopt(curl, CURLOPT_SSLKEY, CRTFILE);
+   curl_easy_setopt(curl, CURLOPT_SSLKEY, KEYFILE);
    curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
    // curl_easy_setopt(curl, CURLOPT_CAINFO, CAFILE);
 

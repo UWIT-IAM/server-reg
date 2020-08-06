@@ -6,13 +6,10 @@
 /* group names */
 
 #define GR_GROUP   "u_cac_internal_groups_read"
-#define GR_COURSE  "u_cac_internal_courses_read"
+#define GR_COURSE  "u_groups_courses_read"
 
 /* Our id */
 #define GR_CL_ID    "server-reg.cac.washington.edu"
-
-#define CAFILE "etc/uw-incommon-ca.crt"
-#define CRTFILE "etc/certs.ck"
 
 /* function */
 

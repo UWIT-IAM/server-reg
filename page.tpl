@@ -22,7 +22,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <title>{TITLE}</title>
- <link rel="stylesheet" type="text/css" href="/css/iam-dojo-2.css"/>
+ <!-- <link rel="stylesheet" type="text/css" href="/css/iam-dojo-2.css"/> -->
  <link rel="stylesheet" type="text/css" href="/server-reg/server-reg.css"/>
 
 
@@ -31,12 +31,13 @@
 </head>
 
 
-<body {BODYTXT} style="width:100%; height:100%;">
+<body {BODYTXT} >
 
 <div id="thepage" style=" overflow:auto;">
 
 
 <h1 class="hidden">SERVER REGISTRATION</h1>
+<!--
 <div id="topbanner" >
 <span class="topleft"><a href="https://wiki.cac.washington.edu/x/lR4">IDENTITY AND ACCESS MANAGEMENT</a></span>
 <ul class="topright">
@@ -57,6 +58,7 @@
     </ul>
 </div>
 
+-->
 
 
 
@@ -157,6 +159,7 @@
 <p>
 </div>
 
+<!--
 <div id="footer"  style="position:absolute;bottom:0px">
     <span id="footlogo"><a href="http:/www.uw.edu/" title="University of Washington">
        UNIVERSITY OF WASHINGTON
@@ -177,6 +180,7 @@
     </span>
 </div>
 
+-->
 
 
 

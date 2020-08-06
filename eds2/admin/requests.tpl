@@ -44,10 +44,10 @@ choose to see all applications.
 <td width=100></td>
 <td align=right valign=top border=1>
 <table class=keynote style="border-width:1px">
-<tr><td><img src=/icons/whiteball.gif> </td><td nowrap>No request, no permission</td></tr>
-<tr><td><img src=/icons/greenball.gif> </td><td nowrap>Requested, permission granted</td></tr>
-<tr><td><img src=/icons/orangeball.gif> </td><td nowrap>Requested, no permission</td></tr>
-<tr><td><img src=/icons/redball.gif></td> <td nowrap>No request, permission granted</td></tr>
+<tr><td><img src=/server-reg/icons/whiteball.gif> </td><td nowrap>No request, no permission</td></tr>
+<tr><td><img src=/server-reg/icons/greenball.gif> </td><td nowrap>Requested, permission granted</td></tr>
+<tr><td><img src=/server-reg/icons/orangeball.gif> </td><td nowrap>Requested, no permission</td></tr>
+<tr><td><img src=/server-reg/icons/redball.gif></td> <td nowrap>No request, permission granted</td></tr>
 </table>
 </td>
 </tr>

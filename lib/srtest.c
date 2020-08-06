@@ -33,7 +33,7 @@ main(int argc, char**argv)
   char *crsonr = NULL;
   char *cafile = CAFILE;
   char *crtfile = CRTFILE;
-  char *keyfile = CRTFILE;
+  char *keyfile = KEYFILE;
   int r;
   int rc;
 
@@ -71,7 +71,7 @@ main(int argc, char**argv)
          PRINTF("..initialize OK\n");
          
          name = uwldap_get_username(L,id);
-            PRINTF("... %s\n", name);
+            if (name) PRINTF("... %s\n", name);
     
       } else {
          PRINTF("..initialize failed.\n");

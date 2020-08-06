@@ -15,7 +15,7 @@
 /* -------------------------------------------  */
 static void *connect_to_ldap(char *host) {
    void *L;
-   L = uwldap_connect(host, base_path_name(CRTFILE), NULL, base_path_name(CAFILE));
+   L = uwldap_connect(host, base_path_name(CRTFILE), base_path_name(KEYFILE), base_path_name(CAFILE));
    return (L);
 }
 

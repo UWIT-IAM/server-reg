@@ -16,8 +16,9 @@
 
 /* config defaults */
 
-#define CAFILE "etc/uw-incommon-ca.crt"
-#define CRTFILE "etc/certs.ck"
+#define CAFILE "/data/local/etc/ca.crt"
+#define CRTFILE "/data/local/etc/server-reg-uw.crt"
+#define KEYFILE "/data/local/etc/server-reg-uw.key"
 
 /* functions */
 

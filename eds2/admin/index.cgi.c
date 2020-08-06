@@ -38,10 +38,10 @@ char *errstr = NULL;
 
 #define REQ(s) (req && !strcmp(req,s))
 
-#define IMAGE_OK    "/icons/greenball.gif"
-#define IMAGE_WANTS "/icons/orangeball.gif"
-#define IMAGE_BLANK "/icons/whiteball.gif"
-#define IMAGE_BAD   "/icons/redball.gif"
+#define IMAGE_OK    "/server-reg/icons/greenball.gif"
+#define IMAGE_WANTS "/server-reg/icons/orangeball.gif"
+#define IMAGE_BLANK "/server-reg/icons/whiteball.gif"
+#define IMAGE_BAD   "/server-reg/icons/redball.gif"
 
 char *q5_choices[] = {
  "q5_admin",

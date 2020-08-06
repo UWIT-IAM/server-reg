@@ -1,6 +1,0 @@
-export REMOTE_USER=fox
-export REQUEST_URI=/pbc/
-
-# export QUERY_STRING='req=sub&xseq=782975455&cn=loss.cac.washington.edu&q1=test'
-export QUERY_STRING=''
-

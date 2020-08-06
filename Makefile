@@ -8,7 +8,7 @@ DEFINES=-DURLROOT=\"$(URL)\" -DDIRROOT=\"$(DEST)\"
 CFLAGS= $(DEBUG) $(COMMON)INCL) $(DEFINES)
 LFLAGS= $(COMMON_LIBS)
 
-SUBDIRS=lib smtp eds2 pbc
+SUBDIRS=lib smtp eds2 icons
 
 DATA=index.html 
 

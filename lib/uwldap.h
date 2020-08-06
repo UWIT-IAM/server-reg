@@ -25,7 +25,7 @@
 /* Base of searches */
 #define UWLDAP_GDS_BASE      "ou=groups,dc=washington,dc=edu"
 #define UWLDAP_EDS_BASE      "ou=UWAuthorizations,dc=personregistry,dc=washington,dc=edu"
-#define UWLDAP_USR_BASE     "dc=washington,dc=edu"
+#define UWLDAP_USR_BASE     "ou=People,dc=personregistry,dc=washington,dc=edu"
 
 typedef struct WPInfo_ {
   char *name;

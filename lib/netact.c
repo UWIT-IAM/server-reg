@@ -4,8 +4,11 @@
 #include <string.h>
 #include <curl/curl.h>
 
-#define HOST_URL "https://umbra.cac.washington.edu/daw/json/DNS/v1/UWNetidsFromFQDN/fqdn/"
-#define DOMAIN_URL "https://umbra.cac.washington.edu/daw/json/Net-Contacts/v1/UWNetidsFromDomain/domain/"
+#define HOST_URL "https://api.tools.s.uw.edu/daw/json/DNS_TOOLS/v2/UWNetidsFromFQDN/fqdn/"
+#define DOMAIN_URL "https://api.tools.s.uw.edu/daw/json/DNS_TOOLS/v2/UWNetidsFromDomain/domain/"
+
+#define CERT "/data/local/etc/gws.cac-uw.crt"
+#define KEY "/data/local/etc/gws.cac-uw.key"
 
 
 /* --- StrList tools --------------------
@@ -112,19 +115,21 @@ int add_owners(StrList owners, char *url) {
    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&data);
+   curl_easy_setopt(curl, CURLOPT_SSLCERT, CERT);
+   curl_easy_setopt(curl, CURLOPT_SSLKEY, KEY);
    res = curl_easy_perform(curl);
    if (res==CURLE_OK) {
       // poor man's json parser
       // printf("got: %s\n", data.memory);
-      char *p = strstr(data.memory, "\"row\":");
+      char *p = strstr(data.memory, "\"netids\":");
       char *q, *r;
+      if (p) p = strchr(p, '[');
       if (p) {
-         p += 6;
-         while (q=strstr(p, "\"uwnetid\"")) {
-            q += 11;
-            if (r=strchr(q, '"')) {
+         while (q=strchr(p, '"')) {
+            if (r=strchr(q+1, '"')) {
                 *r = '\0';
-                addStrList(owners, q);
+                addStrList(owners, q+1);
+                // printf("adding: %s\n", q+1);
                 p = r+1;
             } else break;
          }

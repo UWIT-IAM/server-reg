@@ -8,7 +8,7 @@ DEST=/www/server-reg
 URL=/server-reg
 
 # Filesystem location of source
-SRC=/data/local/src/server-reg
+SRC=/data/devel/server-reg
 
 # --------------------------------------------------
 
@@ -34,14 +34,15 @@ LDAPINC=-I/usr/local/include
 COMMON_LIBS= \
     -L/usr/local/lib \
     -L/usr/kerberos/lib \
+    -L../lib -L../../lib \ -L../../../lib \
     $(LDAPLIB) \
     -lssl \
     -lcrypto -ldl -lz -lresolv
 
 COMMON_INCL= \
     $(SRINC) -I/usr/kerberos/include $(LDAPINC) \
-    -I/usr/local/include
-
+    -I/usr/local/include \
+    -I../lib -I../include -I../../include -I../../../include
 
 # --------------------------------------------------
 

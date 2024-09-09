@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
@@ -133,7 +134,8 @@ int ssl_get_sn(X509 *crt)
 {
   X509_NAME *subj;
   int sn;
-  sn = i2i_ASN1_INTEGER(crt->cert_info->serialNumber);
+//sn = i2i_ASN1_INTEGER(crt->cert_info->serialNumber);
+  sn = X509_get_serialNumber(crt);
   return (sn);
 
 }

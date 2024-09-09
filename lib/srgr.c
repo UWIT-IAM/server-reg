@@ -86,7 +86,8 @@ static int sslverify_callback(int ok, X509_STORE_CTX *ctx)
 
    /* make up an error */
    if (static_debug>1) printf("error, peer CN does not match peer name\n");
-   SSLerr(SSL_F_SSL_VERIFY_CERT_CHAIN, SSL_R_PEER_ERROR_CERTIFICATE);
+// SSLerr(SSL_F_SSL_VERIFY_CERT_CHAIN, SSL_R_PEER_ERROR_CERTIFICATE);
+   SSLerr(SSL_F_SSL_VERIFY_CERT_CHAIN, SSL_R_SSL_HANDSHAKE_FAILURE);
    return (0);
 }
 
